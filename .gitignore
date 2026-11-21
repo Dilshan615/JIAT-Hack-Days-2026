@@ -1,0 +1,26 @@
+# ---- secrets ----
+.env
+backend/.env
+*.env.local
+
+# ---- dependencies ----
+node_modules/
+extension/node_modules/
+
+# ---- build output ----
+extension/dist/
+dist/
+backend/backend
+scamshield-backend
+*.exe
+
+# ---- go ----
+*.test
+*.out
+
+# ---- editors / os ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log

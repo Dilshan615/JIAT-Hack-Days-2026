@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "ScamShield AI",
+  "version": "1.0.0",
+  "description": "AI powered real-time detection of phishing, financial fraud and fake news. Right-click any suspicious text or link to scan it instantly.",
+  "permissions": ["contextMenus", "storage", "activeTab"],
+  "host_permissions": ["http://localhost:8080/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "index.html",
+    "default_title": "ScamShield AI"
+  }
+}
