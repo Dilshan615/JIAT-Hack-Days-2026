@@ -29,11 +29,12 @@ const (
 
 // geminiModels is tried in order. The first model that answers wins; a model
 // that times out, is rate limited or returns a 5xx error gets one quick retry
-// before we move on to the next one.
+// before we move on to the next one. The fastest models come first so a scan
+// still gets a real AI answer inside geminiBudget.
 var geminiModels = []string{
-	"gemini-3.6-flash",
 	"gemini-3.5-flash",
 	"gemini-2.5-flash",
+	"gemini-3.6-flash",
 	"gemini-2.5-flash-lite",
 }
 
@@ -50,6 +51,11 @@ const geminiBudget = 15 * time.Second
 var (
 	errUpstream    = errors.New("gemini upstream error")
 	errRateLimited = errors.New("gemini rate limit")
+
+	// errModelUnavailable marks a model this API key cannot use (404). Unlike an
+	// invalid key or a malformed request, it only affects a single model, so the
+	// chain skips it and keeps going instead of giving up.
+	errModelUnavailable = errors.New("gemini model unavailable")
 )
 
 var httpClient = &http.Client{Timeout: 60 * time.Second}
@@ -435,6 +441,10 @@ func analyze(apiKey, text, language string) scanResponse {
 		if err == nil {
 			return *report
 		}
+		if errors.Is(err, errModelUnavailable) {
+			log.Printf("%s is not available for this API key (%v) - trying the next model", model, err)
+			continue
+		}
 		if !isRetryable(err) {
 			log.Printf("%s reported a non-retryable error (%v) - skipping the remaining models", model, err)
 			break
@@ -514,6 +524,9 @@ func callGemini(ctx context.Context, apiKey, model, text, language string) (*sca
 	}
 	if resp.StatusCode >= 500 {
 		return nil, fmt.Errorf("%w: %s responded with status %d", errUpstream, model, resp.StatusCode)
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("%w: %s responded with status %d", errModelUnavailable, model, resp.StatusCode)
 	}
 
 	var parsed geminiResponse
