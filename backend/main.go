@@ -8,10 +8,13 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -20,11 +23,21 @@ import (
 )
 
 const (
-	port           = "8080"
-	geminiModelURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
+	port                   = "8080"
+	geminiModelURLTemplate = "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent"
 )
 
-var httpClient = &http.Client{Timeout: 45 * time.Second}
+// primaryModel is used first for every scan. If it times out or the service
+// answers with a 5xx error, fallbackModel is tried automatically.
+const (
+	primaryModel  = "gemini-3.6-flash"
+	fallbackModel = "gemini-3.5-flash"
+)
+
+// errUpstream marks a retryable server side (5xx) failure from Gemini.
+var errUpstream = errors.New("gemini upstream error")
+
+var httpClient = &http.Client{Timeout: 60 * time.Second}
 
 // ---------------------------------------------------------------- types
 
@@ -166,7 +179,40 @@ extra commentary. Use exactly this schema:
 
 // ---------------------------------------------------------------- gemini
 
+// analyzeWithGemini asks the primary model first and retries once with the
+// fallback model when the primary times out or returns a 5xx error.
 func analyzeWithGemini(apiKey, text, language string) (*scanResponse, error) {
+	report, err := callGemini(apiKey, primaryModel, text, language)
+	if err == nil {
+		return report, nil
+	}
+
+	if !isRetryable(err) {
+		return nil, err
+	}
+
+	log.Printf("%s failed (%v) - retrying with %s", primaryModel, err, fallbackModel)
+	return callGemini(apiKey, fallbackModel, text, language)
+}
+
+// isRetryable reports whether the error is a timeout or a 5xx response, i.e.
+// the kind of failure that is worth retrying on another model.
+func isRetryable(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, errUpstream) || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+	return false
+}
+
+func callGemini(apiKey, model, text, language string) (*scanResponse, error) {
 	payload := geminiRequest{
 		SystemInstruction: geminiContent{Parts: []geminiPart{{Text: buildSystemPrompt(language)}}},
 		Contents:          []geminiContent{{Role: "user", Parts: []geminiPart{{Text: text}}}},
@@ -178,7 +224,8 @@ func analyzeWithGemini(apiKey, text, language string) (*scanResponse, error) {
 		return nil, fmt.Errorf("failed to encode request: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, geminiModelURL, bytes.NewReader(body))
+	endpoint := fmt.Sprintf(geminiModelURLTemplate, model)
+	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to build request: %w", err)
 	}
@@ -194,6 +241,11 @@ func analyzeWithGemini(apiKey, text, language string) (*scanResponse, error) {
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read gemini response: %w", err)
+	}
+
+	// Server side failures are retryable, so flag them before parsing.
+	if resp.StatusCode >= 500 {
+		return nil, fmt.Errorf("%w: %s responded with status %d", errUpstream, model, resp.StatusCode)
 	}
 
 	var parsed geminiResponse
