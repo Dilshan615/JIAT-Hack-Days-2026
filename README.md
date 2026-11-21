@@ -1,21 +1,25 @@
 # 🛡️ ScamShield AI
 
-> AI-powered, real-time detection of phishing, financial fraud and fake news — right inside your browser.
+**ScamShield AI** is a real-time cybersecurity and fact-checking **Chrome Browser Extension (Manifest V3)**
+that protects users from phishing, financial fraud and fake news — in both **English** and **සිංහල (Sinhala)**.
 
-ScamShield AI is a hackathon project that puts a Gemini-powered scam detector one right-click away.
-Select any suspicious SMS, email, social post or link on a web page, choose **"Scan with ScamShield AI"**
-from the context menu, and get an instant risk score with the red flags and the advice you need.
+The extension talks to a lightweight **Go (Golang)** backend, which forwards the suspect text or URL to the
+**Google Gemini API (`gemini-3.6-flash`)** and returns a structured, easy-to-read risk report in under a few seconds.
+
+> Built for **JIAT Hack Days Gampaha 2026** 🏆
 
 ---
 
-## ✨ Features
+## ✨ Key Features
 
-- **Right-click scanning** — select text on any page and scan it from the context menu.
-- **Risk score 0–100** with a colour-coded meter (🟢 Safe < 35 · 🟡 Suspicious 35–69 · 🔴 High Risk 70+).
-- **Verdict, summary, red flags and actionable advice** for every scan.
-- **Bilingual output** — full **English** and **සිංහල (Sinhala)** support.
-- **Scan the current URL** without copying anything.
-- **Sleek dark cybersecurity UI** built with Tailwind CSS.
+| Feature | Description |
+| --- | --- |
+| 🖱️ **Right-click text scanning** | Select any suspicious text on a page → right-click → **"Scan with ScamShield AI"**. The popup opens and scans it automatically. |
+| 🔗 **Current URL phishing check** | One click analyses the URL of the tab you are on for look-alike, shortened or malicious domains. |
+| 📊 **Color-coded Risk Score (0–100%)** | 🟢 Safe (< 35) · 🟡 Suspicious (35–69) · 🔴 High Risk (70+) |
+| 🧾 **Detailed verdict report** | Every scan returns a **Verdict**, a plain-language **Summary**, a **Red Flags** bullet list and actionable **Advice**. |
+| 🌐 **English / සිංහල toggle** | The entire analysis — summary, red flags and advice — can be generated in Sinhala or English. |
+| 🌑 **Sleek dark UI** | A 360px cybersecurity-styled popup built with Tailwind CSS. |
 
 ---
 
@@ -23,88 +27,54 @@ from the context menu, and get an instant risk score with the red flags and the 
 
 | Layer | Technology |
 | --- | --- |
+| Browser Extension | **Chrome Extension — Manifest V3** (service worker background, `contextMenus`, `storage`, `activeTab`) |
+| Frontend | **React 18** + **Vite** + **Tailwind CSS** |
 | Backend | **Go (Golang)** — standard library only (`net/http`, `encoding/json`) |
-| Frontend | **React 18** + **Vite 5** |
-| Styling | **Tailwind CSS 3** (dark, 360px popup) |
-| Extension | **Chrome Extension Manifest V3** (service worker background) |
-| AI | **Google Gemini API** — `gemini-3.6-flash` |
+| AI Engine | **Google Gemini API** — `gemini-3.6-flash` |
+| License | **MIT** |
 
 ---
 
-## 📁 Project Structure
-
-```
-scamshield-backend/
-├── backend/
-│   ├── main.go            # HTTP server on :8080, POST /scan -> Gemini
-│   ├── go.mod
-│   └── .env.example       # GEMINI_API_KEY template
-├── extension/
-│   ├── public/manifest.json   # MV3 manifest (copied to dist/)
-│   ├── src/
-│   │   ├── App.jsx            # React popup UI
-│   │   ├── background.js      # service worker + context menu
-│   │   ├── main.jsx
-│   │   └── index.css
-│   ├── index.html
-│   ├── vite.config.js
-│   ├── tailwind.config.js
-│   └── package.json
-├── .gitignore
-├── LICENSE
-└── README.md
-```
-
----
-
-## 🚀 Setup & Run
+## 🚀 Local Setup
 
 ### Prerequisites
 
 - [Go 1.21+](https://go.dev/dl/)
 - [Node.js 18+](https://nodejs.org/)
-- Google Chrome (version 127 or newer is recommended, so the popup can auto-open)
+- Google Chrome (v127+ recommended, so the popup can auto-open)
 - A Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
 
-### 1. Backend (Go)
+### 1️⃣ Backend (`backend/`)
 
 ```bash
 cd backend
 
-# Windows (PowerShell)
-Copy-Item .env.example .env
-
-# macOS / Linux
-cp .env.example .env
+# Create your local environment file
+cp .env.example .env        # Windows PowerShell: Copy-Item .env.example .env
 ```
 
-Open `backend/.env` and put your key in it:
+Open `backend/.env` and add your key:
 
 ```
-GEMINI_API_KEY=your_real_gemini_api_key
+GEMINI_API_KEY=your_api_key_here
 ```
 
-Then start the server:
+Start the server:
 
 ```bash
 go run main.go
 ```
 
-You should see:
+You should see `ScamShield AI backend listening on http://localhost:8080`.
 
-```
-ScamShield AI backend listening on http://localhost:8080
-```
-
-Quick sanity check (optional):
+**Verify it is alive:**
 
 ```bash
-curl -X POST http://localhost:8080/scan \
-  -H "Content-Type: application/json" \
-  -d "{\"text\":\"Your bank account is blocked. Send your OTP now to unlock it.\",\"language\":\"English\"}"
+curl http://localhost:8080/health
+# {"api_key_ready":true,"service":"ScamShield AI","status":"ok"}
 ```
 
-### 2. Chrome Extension (React + Vite)
+### 2️⃣ Extension (`extension/`)
 
 ```bash
 cd extension
@@ -112,97 +82,52 @@ npm install
 npm run build
 ```
 
-The build produces a `dist/` folder containing `manifest.json`, `background.js` and the React popup.
+This produces a ready-to-load `dist/` folder containing `manifest.json`, `background.js` and the React popup.
 
-### 3. Load it in Chrome
+### 3️⃣ Load it in Chrome
 
-1. Open `chrome://extensions`
-2. Turn on **Developer mode** (top-right)
+1. Go to `chrome://extensions`
+2. Enable **Developer mode** (top-right)
 3. Click **Load unpacked**
-4. Select the `extension/dist` folder
-5. Pin **ScamShield AI** to the toolbar
+4. Select the **`extension/dist`** folder
+5. Pin **ScamShield AI** to the toolbar — you're ready to scan
 
-### 4. Use it
-
-- **Option A — Right click:** select any suspicious text on a page → right click → **Scan with ScamShield AI**.
-- **Option B — Popup:** click the toolbar icon, paste the text, hit **Scan Text**.
-- **Option C — URL:** click **Scan Current URL** to analyse the page you are on.
-
-> During development you can run `npm run dev` for hot reload, but the popup only gets access to
-> `chrome.*` APIs when it is loaded as an unpacked extension from `dist/`.
-
----
-
-## 🔌 API Reference
-
-### `POST /scan`
-
-Request:
-
-```json
-{
-  "text": "Congratulations! You won Rs. 500,000. Send your OTP to claim.",
-  "language": "English"
-}
-```
-
-Response:
-
-```json
-{
-  "risk_score": 92,
-  "verdict": "High Risk",
-  "summary": "A classic prize-bait SMS that tries to harvest your OTP.",
-  "red_flags": [
-    "Unsolicited prize claim",
-    "Requests an OTP / banking credentials",
-    "Creates artificial urgency"
-  ],
-  "advice": "Do not reply or share any code. Delete the message and report the sender."
-}
-```
-
-### `GET /health`
-
-Returns `{"status":"ok","service":"ScamShield AI","api_key_ready":true}` — handy for debugging.
+> Keep the Go backend running in a terminal whenever you use the extension. If it is not running the
+> popup shows a friendly "backend offline" message instead of crashing.
 
 ---
 
 ## 👥 Team Contributions
 
-| # | Team Member | Role | Contributions |
+| # | Member | Role | Contributions |
 | --- | --- | --- | --- |
-| 1 | _Member 1_ | Team Lead | Project planning, architecture, integration |
-| 2 | _Member 2_ | Backend Developer | Go API, Gemini integration, prompt engineering |
-| 3 | _Member 3_ | Frontend Developer | React popup UI, Tailwind styling, i18n toggle |
-| 4 | _Member 4_ | Extension Developer | Manifest V3, service worker, context menu |
-| 5 | _Member 5_ | QA & Documentation | Testing, README, demo video, presentation |
+| 1 | **Pathum** | Team Lead | Go (Golang) backend architecture, Gemini API integration, Chrome Extension core setup, and GitHub deployment |
+| 2 | **Manja** | Frontend Developer | Frontend UI/UX polish (React & Tailwind CSS), Dark Mode styling, and extension testing |
+| 3 | **Shonali** | Quality Assurance | QA, real-world scam/phishing & Sinhala fake-news test cases, and demo preparation |
+| 4 | **Shalini** | Documentation | Documentation (`README.md`, MIT License verification), AI disclosure, and OrganizerHQ submission management |
+| 5 | **Ruwini** | Media & Presentation | Track 2 Social Media Campaign video direction, scriptwriting, filming, and YouTube presentation |
 
 ---
 
 ## 🤖 AI Disclosure
 
-- **Google Gemini API (`gemini-3.6-flash`)** powers the core of this project. All real-time scam,
-  phishing, financial-fraud and fake-news analysis — the risk score, verdict, summary, red flags
-  and advice — is generated by Gemini. The Go backend only prepares the prompt, forwards the text
-  and validates the JSON that comes back.
-- **Antigravity** was used for scaffolding the repository (project structure, boilerplate and
-  configuration files).
-- The system prompt and response schema are hand-written to keep every answer machine-readable:
-  `{"risk_score": 0-100, "verdict": "Safe | Suspicious | High Risk", "summary": "...", "red_flags": ["..."], "advice": "..."}`
-
-**Security note:** the Gemini API key is never hardcoded. It is read from the `GEMINI_API_KEY`
-environment variable (or a local `backend/.env` that is git-ignored).
+- **Google Gemini API (`gemini-3.6-flash`)** runs inside the Go backend through the `POST /scan` endpoint
+  and performs all real-time scam, phishing and fake-news analysis. The backend only builds the prompt,
+  forwards the text and validates the JSON that comes back.
+- **Gemini API Project Number:** `734368450504`. API keys are **never** committed — they are excluded
+  via `.gitignore` and loaded at runtime from the `GEMINI_API_KEY` environment variable (or a local
+  `backend/.env`).
+- **Antigravity IDE** and **Google Gemini** were used to assist with scaffolding, debugging and documentation.
 
 ---
 
 ## 📄 License
 
-Released under the [MIT License](LICENSE).
+This project is released under the **MIT License**. See the [LICENSE](LICENSE) file for the full text.
 
 ---
 
 ## ⚠️ Disclaimer
 
-ScamShield AI is a decision-support tool built for a hackathon. AI can be wrong — always verify
+ScamShield AI is a decision-support tool built for a hackathon. AI models can be wrong — always verify
 critical financial or personal decisions with the official source before acting.
